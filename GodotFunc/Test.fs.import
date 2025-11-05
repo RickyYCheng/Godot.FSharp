@@ -1,0 +1,16 @@
+[remap]
+
+importer="F# Script Importer"
+type="Script"
+uid="uid://cgdfs2dfn1fcj"
+path="res://scripts.generate/Test.cs"
+
+[deps]
+
+files=["res://scripts.generate/Test.cs"]
+
+source_file="res://Test.fs"
+dest_files=["res://.godot/imported/Test.fs-0b8d35bd5c4c242d3b4f90ecdac63292.cs", "res://scripts.generate/Test.cs"]
+
+[params]
+

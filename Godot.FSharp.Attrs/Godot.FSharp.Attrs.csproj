@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Godot.FSharp.Attrs</PackageId>
+    <Version>0.0.1</Version>
+    <Authors>RickyYC</Authors>
+    <PackageOutputPath>$(MSBuildProjectDirectory)/../GodotFunc/addons/Godot.FSharp</PackageOutputPath>
+    <Description>Attribute types used by Godot.FSharp. This package should be tracked by git (do not
+      add to gitignore).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GodotSharp" Version="4.5.1" />
+  </ItemGroup>
+</Project>
