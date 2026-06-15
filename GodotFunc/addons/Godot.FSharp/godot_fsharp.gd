@@ -355,7 +355,7 @@ func _ensure_directory_build_props(project_dir: String) -> bool:
 		return true
 	var template := """<Project>
   <PropertyGroup>
-    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+    <ArtifactsPath>$(MSBuildThisFileDirectory).artifacts\\</ArtifactsPath>
     <RestoreSources>
       $(RestoreSources);
       $(MSBuildThisFileDirectory)%s

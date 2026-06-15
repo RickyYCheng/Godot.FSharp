@@ -1,13 +1,9 @@
 <Project>
-  <!-- See https://aka.ms/dotnet/msbuild/customize for more details on customizing your build -->
   <PropertyGroup>
-
-    <ArtifactsPath>$(MSBuildThisFileDirectory).artifacts</ArtifactsPath>
-
+    <ArtifactsPath>$(MSBuildThisFileDirectory).artifacts\</ArtifactsPath>
     <RestoreSources>
       $(RestoreSources);
       $(MSBuildThisFileDirectory)addons/Godot.FSharp/nupkg
     </RestoreSources>
-
   </PropertyGroup>
 </Project>
