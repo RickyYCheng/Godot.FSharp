@@ -333,7 +333,6 @@ func _ensure_nuget_config(project_dir: String) -> bool:
 	var template := """<?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <packageSources>
-    <clear />
     <add key="%s" value="./%s" />
   </packageSources>
 </configuration>
