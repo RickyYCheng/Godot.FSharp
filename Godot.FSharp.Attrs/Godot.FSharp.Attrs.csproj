@@ -11,7 +11,7 @@
     <PackageId>Godot.FSharp.Attrs</PackageId>
     <Version>0.0.1</Version>
     <Authors>RickyYC</Authors>
-    <PackageOutputPath>$(MSBuildProjectDirectory)/../GodotFunc/addons/Godot.FSharp</PackageOutputPath>
+    <PackageOutputPath>$(MSBuildProjectDirectory)/../GodotFunc/addons/Godot.FSharp/nupkg</PackageOutputPath>
     <Description>Attribute types used by Godot.FSharp. This package should be tracked by git (do not
       add to gitignore).</Description>
   </PropertyGroup>

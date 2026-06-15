@@ -6,7 +6,7 @@
 
     <RestoreSources>
       $(RestoreSources);
-      $(MSBuildThisFileDirectory)addons/Godot.FSharp
+      $(MSBuildThisFileDirectory)addons/Godot.FSharp/nupkg
     </RestoreSources>
 
   </PropertyGroup>

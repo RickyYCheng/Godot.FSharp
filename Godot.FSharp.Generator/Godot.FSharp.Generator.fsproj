@@ -8,7 +8,7 @@
     <ToolCommandName>godot-fsharp-gen</ToolCommandName>
     <PackageId>Godot.FSharp.Generator</PackageId>
     <Version>0.0.1</Version>
-    <PackageOutputPath>$(MSBuildProjectDirectory)/../GodotFunc/addons/Godot.FSharp</PackageOutputPath>
+    <PackageOutputPath>$(MSBuildProjectDirectory)/../GodotFunc/addons/Godot.FSharp/nupkg</PackageOutputPath>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
