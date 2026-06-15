@@ -87,10 +87,13 @@ public partial class FSharpScriptImporter : EditorImportPlugin
 """
 extends Node
 
+@export var greetings: String
+
 func _ready() -> void:
-    prints("Hello world from fs->gd!")
+    prints(greetings, "Hello world from fs->gd!")
 """
         };
+        gdscript.Reload();
         ResourceSaver.Save(gdscript, importPath);
         genFiles.Add(targetPath);
 
