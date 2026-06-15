@@ -8,9 +8,6 @@ const MENU_CREATE_CONFIG_ID := 1
 
 # Build pipeline constants
 const ADDON_NUGET_PATH := "addons/Godot.FSharp/nupkg"
-const GENERATOR_PACKAGE_ID := "godot.fsharp.generator"
-const GENERATOR_VERSION := "0.0.1"
-const GENERATOR_COMMAND := "godot-fsharp-gen"
 const ATTRS_PACKAGE_ID := "Godot.FSharp.Attrs"
 const ATTRS_VERSION := "0.0.1"
 const NUGET_SOURCE_KEY := "Godot.FSharp"
@@ -52,7 +49,6 @@ func _on_config_menu_id_pressed(id: int) -> void:
 #   - <ProjectStem>.FSharp.fsproj      F# project (name derived from the csproj)
 #   - <csproj>                         adds <ProjectReference> to the fsproj
 #   - <sln>                            adds the fsproj with a generated GUID
-#   - .config/dotnet-tools.json        local tool manifest for the generator
 #   - nuget.config                     local package source pointing at the addon
 #   - Directory.Build.props            RestoreSources entry pointing at the addon
 #
@@ -82,7 +78,6 @@ func _create_config_files() -> bool:
 	ok = _ensure_csproj_project_reference(csproj_path, fsproj_name) and ok
 	if not sln_path.is_empty():
 		ok = _ensure_sln_project_reference(sln_path, fsproj_name) and ok
-	ok = _ensure_tool_manifest(project_dir) and ok
 	ok = _ensure_nuget_config(project_dir) and ok
 	ok = _ensure_directory_build_props(project_dir) and ok
 	return ok
@@ -186,8 +181,7 @@ func _ensure_fsproj(project_dir: String, fsproj_name: String, csproj_values: Dic
 	</PropertyGroup>
 
 	<Target Name="PostBuild" AfterTargets="Build">
-		<Exec Command="dotnet tool restore" />
-		<Exec Command="dotnet %s &quot;$(TargetPath)&quot; &quot;$(ProjectDir)scripts.generate&quot;" />
+		<Exec Command="dotnet run --project &quot;$(MSBuildThisFileDirectory)addons/Godot.FSharp/Godot.FSharp.Generator/Godot.FSharp.Generator.fsproj&quot; -- &quot;$(TargetPath)&quot; &quot;$(ProjectDir)scripts.generate&quot;" />
 	</Target>
 
 	<!--
@@ -204,7 +198,7 @@ func _ensure_fsproj(project_dir: String, fsproj_name: String, csproj_values: Dic
 	</ItemGroup>
 
 </Project>
-""" % [csproj_values["target_framework"], GENERATOR_COMMAND, csproj_values["godot_sharp_version"], ATTRS_PACKAGE_ID, ATTRS_VERSION]
+""" % [csproj_values["target_framework"], csproj_values["godot_sharp_version"], ATTRS_PACKAGE_ID, ATTRS_VERSION]
 	return _write_file(path, template)
 
 
@@ -289,35 +283,6 @@ func _generate_guid() -> String:
 		bytes[8], bytes[9],
 		bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
 	]
-
-
-# Creates .config/dotnet-tools.json declaring the generator as a local tool,
-# if the file is missing. If present but missing the tool entry, a warning is
-# pushed and the file is left alone (it may contain other user tools).
-func _ensure_tool_manifest(project_dir: String) -> bool:
-	var path := project_dir.path_join(".config").path_join("dotnet-tools.json")
-	if FileAccess.file_exists(path):
-		var content := FileAccess.get_file_as_string(path)
-		if GENERATOR_PACKAGE_ID in content:
-			return true
-		push_warning("Godot.FSharp: .config/dotnet-tools.json exists but does not declare %s. Please add it manually." % GENERATOR_PACKAGE_ID)
-		return false
-	DirAccess.make_dir_recursive_absolute(project_dir.path_join(".config"))
-	var template := """{
-  "version": 1,
-  "isRoot": true,
-  "tools": {
-    "%s": {
-      "version": "%s",
-      "commands": [
-        "%s"
-      ],
-      "rollForward": false
-    }
-  }
-}
-""" % [GENERATOR_PACKAGE_ID, GENERATOR_VERSION, GENERATOR_COMMAND]
-	return _write_file(path, template)
 
 
 # Creates nuget.config with a single local package source pointing at the

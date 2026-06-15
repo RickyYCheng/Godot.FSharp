@@ -1,14 +1,11 @@
 <Project Sdk="Godot.NET.Sdk/4.6.3">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="GodotFunc.FSharp.fsproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Godot.FSharp.Attrs" Version="0.0.1" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="GodotFunc.FSharp.fsproj" />
+	</ItemGroup>
 
 </Project>
