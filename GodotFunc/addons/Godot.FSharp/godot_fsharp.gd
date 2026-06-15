@@ -12,8 +12,6 @@ const GENERATOR_COMMAND := "godot-fsharp-gen"
 const ATTRS_PACKAGE_ID := "Godot.FSharp.Attrs"
 const ATTRS_VERSION := "0.0.1"
 const NUGET_SOURCE_KEY := "Godot.FSharp"
-const FSHARP_SDK_VERSION := "4.6.3"
-const TARGET_FRAMEWORK := "net10.0"
 
 
 var _importer: EditorImportPlugin
@@ -51,9 +49,12 @@ func _create_config_files() -> bool:
 	if csproj_path.is_empty():
 		push_warning("Godot.FSharp: No .csproj found in project root. Run Project > Tools > Create C# solution in the Godot editor, then re-enable the plugin.")
 		return false
+	var csproj_values := _read_csproj_values(csproj_path)
+	if csproj_values.is_empty():
+		return false
 	var fsproj_name := "%s.FSharp.fsproj" % csproj_path.get_file().get_basename()
 	var ok := true
-	ok = _ensure_fsproj(project_dir, fsproj_name) and ok
+	ok = _ensure_fsproj(project_dir, fsproj_name, csproj_values) and ok
 	ok = _ensure_csproj_project_reference(csproj_path, fsproj_name) and ok
 	ok = _ensure_tool_manifest(project_dir) and ok
 	ok = _ensure_nuget_config(project_dir) and ok
@@ -82,10 +83,44 @@ func _find_csproject(project_dir: String) -> String:
 	return ""
 
 
+# Reads values from the csproj that the F# project needs to match. The csproj is
+# the source of truth — we never hardcode SDK/framework versions.
+# Returns a Dictionary with keys:
+#   - target_framework:    <TargetFramework>netX.0</TargetFramework>
+#   - godot_sharp_version: from <PackageReference Include="GodotSharp" .../> or
+#                          the Godot.NET.Sdk/X.Y.Z SDK attribute
+# Returns an empty Dictionary on failure (with a warning).
+func _read_csproj_values(csproj_path: String) -> Dictionary:
+	var content := FileAccess.get_file_as_string(csproj_path)
+	var values := {}
+
+	var tf_regex := RegEx.create_from_string(r"<TargetFramework>([^<]+)</TargetFramework>")
+	var tf_match := tf_regex.search(content)
+	if tf_match == null:
+		push_warning("Godot.FSharp: Could not find <TargetFramework> in %s." % csproj_path.get_file())
+		return {}
+	values["target_framework"] = tf_match.get_string(1).strip_edges()
+
+	var gs_regex := RegEx.create_from_string(r"GodotSharp[^>]*Version=""([^""]+)""")
+	var gs_match := gs_regex.search(content)
+	if gs_match != null:
+		values["godot_sharp_version"] = gs_match.get_string(1)
+	else:
+		var sdk_regex := RegEx.create_from_string(r"Godot\.NET\.Sdk/([0-9.]+)")
+		var sdk_match := sdk_regex.search(content)
+		if sdk_match != null:
+			values["godot_sharp_version"] = sdk_match.get_string(1)
+		else:
+			push_warning("Godot.FSharp: Could not find GodotSharp / Godot.NET.Sdk version in %s." % csproj_path.get_file())
+			return {}
+
+	return values
+
+
 # Creates <ProjectStem>.FSharp.fsproj from a template if no .fsproj exists in
 # the project root. A pre-existing F# project under any name is treated as
 # "user owns this" and is never overwritten.
-func _ensure_fsproj(project_dir: String, fsproj_name: String) -> bool:
+func _ensure_fsproj(project_dir: String, fsproj_name: String, csproj_values: Dictionary) -> bool:
 	var dir := DirAccess.open(project_dir)
 	if dir != null:
 		dir.list_dir_begin()
@@ -118,7 +153,7 @@ func _ensure_fsproj(project_dir: String, fsproj_name: String) -> bool:
 	</ItemGroup>
 
 </Project>
-""" % [TARGET_FRAMEWORK, GENERATOR_COMMAND, FSHARP_SDK_VERSION, ATTRS_PACKAGE_ID, ATTRS_VERSION]
+""" % [csproj_values["target_framework"], GENERATOR_COMMAND, csproj_values["godot_sharp_version"], ATTRS_PACKAGE_ID, ATTRS_VERSION]
 	return _write_file(path, template)
 
 
