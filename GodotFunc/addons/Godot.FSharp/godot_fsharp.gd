@@ -101,7 +101,7 @@ func _read_csproj_values(csproj_path: String) -> Dictionary:
 		return {}
 	values["target_framework"] = tf_match.get_string(1).strip_edges()
 
-	var gs_regex := RegEx.create_from_string(r"GodotSharp[^>]*Version=""([^""]+)""")
+	var gs_regex := RegEx.create_from_string(r'GodotSharp[^>]*Version="([^"]+)"')
 	var gs_match := gs_regex.search(content)
 	if gs_match != null:
 		values["godot_sharp_version"] = gs_match.get_string(1)
