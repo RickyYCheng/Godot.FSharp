@@ -295,6 +295,6 @@ TypeHelper.getGenerationClass()
     if Directory.Exists directory |> not then
         Directory.CreateDirectory directory |> ignore
     
-    if File.ReadAllText filePath <> content then
+    if File.Exists filePath |> not || File.ReadAllText filePath <> content then
         File.WriteAllText(filePath, content)
 )

@@ -20,7 +20,10 @@ public partial class FSharpScriptImporter : EditorImportPlugin
 
     public override string _GetSaveExtension()
     {
-        return "cs";
+        // CAUTION: Muse be `tres` instead of `gd`
+        // Otherwise the godot editor will throw lsp error
+        // for the fs script which is recognize as gdscript
+        return "tres";
     }
 
     public override string _GetResourceType()
@@ -78,20 +81,18 @@ public partial class FSharpScriptImporter : EditorImportPlugin
         var targetPath = $"res://scripts.generate/{typeName}.cs";
         var importPath = $"{savePath}.{_GetSaveExtension()}";
 
-        if (!FileAccess.FileExists(importPath))
+        var gdscript = new GDScript
         {
-            using var writer = FileAccess.Open(importPath, FileAccess.ModeFlags.Write);
-            writer.StoreString("");
-        }
-        genFiles.Add(targetPath);
+            SourceCode = 
+"""
+extends Node
 
-        Callable.From(() =>
-        {
-            var path = ProjectSettings.GlobalizePath($"{sourceFile}.import");
-            // CAUTION: use reg-exp
-            var str = System.IO.File.ReadAllText(path).Replace($"path=\"{importPath}\"", $"path=\"{targetPath}\"");
-            System.IO.File.WriteAllText(path, str);
-        }).CallDeferred();
+func _ready() -> void:
+    prints("Hello world from fs->gd!")
+"""
+        };
+        ResourceSaver.Save(gdscript, importPath);
+        genFiles.Add(targetPath);
 
         return Error.Ok;
     }
