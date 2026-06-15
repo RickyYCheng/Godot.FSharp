@@ -15,6 +15,10 @@ const ATTRS_PACKAGE_ID := "Godot.FSharp.Attrs"
 const ATTRS_VERSION := "0.0.1"
 const NUGET_SOURCE_KEY := "Godot.FSharp"
 
+# .sln injection
+const FSHARP_PROJECT_TYPE_GUID := "{F2A71F9B-5D33-465A-A702-920D77279786}"
+const SLN_CONFIGS := ["Debug|Any CPU", "ExportDebug|Any CPU", "ExportRelease|Any CPU"]
+
 
 var _importer: EditorImportPlugin
 var _config_menu: PopupMenu
@@ -47,6 +51,7 @@ func _on_config_menu_id_pressed(id: int) -> void:
 # are in place:
 #   - <ProjectStem>.FSharp.fsproj      F# project (name derived from the csproj)
 #   - <csproj>                         adds <ProjectReference> to the fsproj
+#   - <sln>                            adds the fsproj with a generated GUID
 #   - .config/dotnet-tools.json        local tool manifest for the generator
 #   - nuget.config                     local package source pointing at the addon
 #   - Directory.Build.props            RestoreSources entry pointing at the addon
@@ -69,9 +74,14 @@ func _create_config_files() -> bool:
 	if csproj_values.is_empty():
 		return false
 	var fsproj_name := "%s.FSharp.fsproj" % csproj_path.get_file().get_basename()
+	var sln_path := _find_solution(project_dir)
+	if sln_path.is_empty():
+		push_warning("Godot.FSharp: No .sln found in project root. .sln updates skipped.")
 	var ok := true
 	ok = _ensure_fsproj(project_dir, fsproj_name, csproj_values) and ok
 	ok = _ensure_csproj_project_reference(csproj_path, fsproj_name) and ok
+	if not sln_path.is_empty():
+		ok = _ensure_sln_project_reference(sln_path, fsproj_name) and ok
 	ok = _ensure_tool_manifest(project_dir) and ok
 	ok = _ensure_nuget_config(project_dir) and ok
 	ok = _ensure_directory_build_props(project_dir) and ok
@@ -96,6 +106,27 @@ func _find_csproject(project_dir: String) -> String:
 		return found[0]
 	if found.size() > 1:
 		push_warning("Godot.FSharp: Multiple .csproj files found in project root. Please keep only one.")
+	return ""
+
+
+# Returns the absolute path of the single .sln in the project root, or "" if
+# none is found (or if multiple exist).
+func _find_solution(project_dir: String) -> String:
+	var dir := DirAccess.open(project_dir)
+	if dir == null:
+		return ""
+	var found: Array = []
+	dir.list_dir_begin()
+	var file := dir.get_next()
+	while file != "":
+		if file.ends_with(".sln"):
+			found.append(project_dir.path_join(file))
+		file = dir.get_next()
+	dir.list_dir_end()
+	if found.size() == 1:
+		return found[0]
+	if found.size() > 1:
+		push_warning("Godot.FSharp: Multiple .sln files found in project root. Please keep only one.")
 	return ""
 
 
@@ -196,6 +227,68 @@ func _ensure_csproj_project_reference(csproj_path: String, fsproj_name: String) 
 		return false
 	print("Godot.FSharp: Added <ProjectReference Include=\"%s\" /> to %s" % [fsproj_name, csproj_path.get_file()])
 	return true
+
+
+# Adds the F# project to the .sln with a freshly generated GUID. Injects:
+#   - A Project / EndProject block right before the "Global" section
+#   - ActiveCfg + Build.0 entries for each Debug/ExportDebug/ExportRelease
+#     config inside the ProjectConfigurationPlatforms section
+# Text injection only — the existing C# project entry and other sections are
+# preserved verbatim. Existing F# project entries are detected by filename and
+# left untouched.
+func _ensure_sln_project_reference(sln_path: String, fsproj_filename: String) -> bool:
+	if not FileAccess.file_exists(sln_path):
+		return false
+	var content := FileAccess.get_file_as_string(sln_path)
+	if fsproj_filename in content:
+		return true
+
+	var guid := _generate_guid()
+	var fsproj_stem := fsproj_filename.get_basename()
+
+	# 1. Inject Project entry just before the Global section
+	var global_marker := "\nGlobal"
+	var global_idx := content.find(global_marker)
+	if global_idx == -1:
+		push_warning("Godot.FSharp: %s has no 'Global' section; cannot inject project entry." % sln_path.get_file())
+		return false
+	var project_entry := "\nProject(\"%s\") = \"%s\", \"%s\", \"%s\"\nEndProject\n" % [
+		FSHARP_PROJECT_TYPE_GUID, fsproj_stem, fsproj_filename, guid
+	]
+	var updated := content.substr(0, global_idx) + project_entry + content.substr(global_idx)
+
+	# 2. Inject configuration entries inside ProjectConfigurationPlatforms
+	var cfg_start := updated.find("ProjectConfigurationPlatforms) = postSolution")
+	if cfg_start == -1:
+		push_warning("Godot.FSharp: %s has no ProjectConfigurationPlatforms section; project entry added but configurations skipped." % sln_path.get_file())
+		return _write_file(sln_path, updated)
+	var cfg_end := updated.find("\tEndGlobalSection", cfg_start)
+	if cfg_end == -1:
+		push_warning("Godot.FSharp: %s ProjectConfigurationPlatforms has no EndGlobalSection; configurations skipped." % sln_path.get_file())
+		return _write_file(sln_path, updated)
+
+	var cfg_lines := ""
+	for config in SLN_CONFIGS:
+		cfg_lines += "\t\t%s.%s.ActiveCfg = %s\n" % [guid, config, config]
+		cfg_lines += "\t\t%s.%s.Build.0 = %s\n" % [guid, config, config]
+
+	updated = updated.substr(0, cfg_end) + cfg_lines + updated.substr(cfg_end)
+	if not _write_file(sln_path, updated):
+		return false
+	print("Godot.FSharp: Added %s to %s (GUID %s)" % [fsproj_filename, sln_path.get_file(), guid])
+	return true
+
+
+# Generates a random uppercase GUID of the form {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}.
+func _generate_guid() -> String:
+	var bytes := Crypto.new().generate_random_bytes(16)
+	return "{%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x}" % [
+		bytes[0], bytes[1], bytes[2], bytes[3],
+		bytes[4], bytes[5],
+		bytes[6], bytes[7],
+		bytes[8], bytes[9],
+		bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+	]
 
 
 # Creates .config/dotnet-tools.json declaring the generator as a local tool,
