@@ -9,7 +9,7 @@ A repository for using F# scripts in Godot.
 > The custom Godot importer will remap your `.fs` files to the generated `.cs` files.
 
 ## Platform Supports
-- Godot 4.5.1+, mono
+- Godot 4.6.3, mono
 
 ## Features
 - Full F# scripting support in Godot
