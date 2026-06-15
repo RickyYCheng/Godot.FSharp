@@ -3,7 +3,8 @@ extends EditorPlugin
 
 
 const FSharpImporter := preload("res://addons/Godot.FSharp/fsharp_script_importer.gd")
-const MENU_CREATE_CONFIG := "F# > Create Config Files"
+const MENU_FSHARP_SUBMENU := "F#"
+const MENU_CREATE_CONFIG_ID := 1
 
 # Build pipeline constants
 const ADDON_NUGET_PATH := "addons/Godot.FSharp/nupkg"
@@ -16,22 +17,30 @@ const NUGET_SOURCE_KEY := "Godot.FSharp"
 
 
 var _importer: EditorImportPlugin
+var _config_menu: PopupMenu
 
 
 func _enter_tree() -> void:
 	_importer = FSharpImporter.new()
 	add_import_plugin(_importer)
-	add_tool_menu_item(MENU_CREATE_CONFIG, _on_create_config_files_menu)
+
+	_config_menu = PopupMenu.new()
+	_config_menu.add_item("Create Config Files", MENU_CREATE_CONFIG_ID)
+	_config_menu.id_pressed.connect(_on_config_menu_id_pressed)
+	add_tool_submenu_item(MENU_FSHARP_SUBMENU, _config_menu)
 
 
 func _exit_tree() -> void:
-	remove_tool_menu_item(MENU_CREATE_CONFIG)
+	if _config_menu:
+		_config_menu.queue_free()
+		_config_menu = null
 	remove_import_plugin(_importer)
 	_importer = null
 
 
-func _on_create_config_files_menu() -> void:
-	_create_config_files()
+func _on_config_menu_id_pressed(id: int) -> void:
+	if id == MENU_CREATE_CONFIG_ID:
+		_create_config_files()
 
 
 # Idempotently ensures the configuration files needed for the F# build pipeline
@@ -150,9 +159,13 @@ func _ensure_fsproj(project_dir: String, fsproj_name: String, csproj_values: Dic
 		<Exec Command="dotnet %s &quot;$(TargetPath)&quot; &quot;$(ProjectDir)scripts.generate&quot;" />
 	</Target>
 
-	<ItemGroup>
-		<Compile Include="*.fs" />
-	</ItemGroup>
+	<!--
+		F# requires sources to be listed in dependency order. Add each
+		.fs file explicitly, e.g.:
+		<ItemGroup>
+			<Compile Include="MyFile.fs" />
+		</ItemGroup>
+	-->
 
 	<ItemGroup>
 		<PackageReference Include="GodotSharp" Version="%s" />
