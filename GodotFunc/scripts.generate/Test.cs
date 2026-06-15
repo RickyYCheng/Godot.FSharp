@@ -1,7 +1,7 @@
 using Godot;
 using Godot.NativeInterop;
 
-public partial class Test : GodotFunc.FSharp.Test 
+public partial class Test : GodotFunc.FSharp.Test
 {
     [Export] public override System.Int32 FooBar { get => base.FooBar; set => base.FooBar = value;}
     [Export] public new System.Int32 Qux { get => base.Qux; set => base.Qux = value;}
@@ -16,7 +16,7 @@ partial class Test
     {
         var signals = new global::System.Collections.Generic.List<global::Godot.Bridge.MethodInfo>(1);
         signals.Add(new(name: "MySignal", returnVal: new(type: (global::Godot.Variant.Type)0, name: "", hint: (global::Godot.PropertyHint)0, hintString: "", usage: (global::Godot.PropertyUsageFlags)6, exported: false), flags: (global::Godot.MethodFlags)1, arguments: new() { new(type: (global::Godot.Variant.Type)24, name: "sender", hint: (global::Godot.PropertyHint)0, hintString: "", usage: (global::Godot.PropertyUsageFlags)6, exported: false) }, defaultArguments: null));
-        return signals;  
+        return signals;
     }
     [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]
     protected override void RaiseGodotClassSignalCallbacks(in godot_string_name signal, NativeVariantPtrArgs args)

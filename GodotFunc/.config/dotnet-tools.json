@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "godot.fsharp.generator": {
+      "version": "0.0.1",
+      "commands": [
+        "godot-fsharp-gen"
+      ],
+      "rollForward": false
+    }
+  }
+}

@@ -3,7 +3,5 @@
 [ext_resource type="Script" uid="uid://bxn4kbfnuhfub" path="res://Test.fs" id="1_37kl0"]
 
 [node name="Test" type="Node2D" unique_id=766695211]
-
-[node name="Node" type="Node" parent="." unique_id=1567656171]
 script = ExtResource("1_37kl0")
-greetings = "Hello godot editor!"
+greetings = "Hello fs and gd!"

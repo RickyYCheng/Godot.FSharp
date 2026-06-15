@@ -1,4 +1,4 @@
-#load "reference.fsx"
+module Godot.FSharp.Generator.Program
 
 open System
 open System.IO
@@ -10,7 +10,7 @@ open Godot.FSharp
 
 module TypeHelper =
 
-    let types = 
+    let types =
         ImmutableHashSet.Create(
             typeof<bool>,
             typeof<int>,
@@ -41,15 +41,15 @@ module TypeHelper =
             typeof<Signal>,
             typeof<Godot.Collections.Dictionary>,
             typeof<Godot.Collections.Array>,
-            typeof<byte[]>, // PackedByteArray
-            typeof<int[]>,  // PackedInt32Array
-            typeof<int64[]>, // PackedInt64Array
-            typeof<float32[]>, // PackedFloat32Array
-            typeof<float[]>, // PackedFloat64Array
-            typeof<string[]>, // PackedStringArray
-            typeof<Vector2[]>, // PackedVector2Array
-            typeof<Vector3[]>, // PackedVector3Array
-            typeof<Color[]>, // PackedColorArray
+            typeof<byte[]>,
+            typeof<int[]>,
+            typeof<int64[]>,
+            typeof<float32[]>,
+            typeof<float[]>,
+            typeof<string[]>,
+            typeof<Vector2[]>,
+            typeof<Vector3[]>,
+            typeof<Color[]>,
             typeof<GodotObject>
         )
 
@@ -59,7 +59,7 @@ module TypeHelper =
         elif not typ.IsGenericType then false
         else
             let genericTypeDef = typ.GetGenericTypeDefinition()
-            genericTypeDef = typedefof<Godot.Collections.Array<_>> 
+            genericTypeDef = typedefof<Godot.Collections.Array<_>>
             || genericTypeDef = typedefof<Godot.Collections.Dictionary<_,_>>
 
     let toVariantType (typ: Type) =
@@ -102,11 +102,11 @@ module TypeHelper =
         | t when t = typeof<Vector2[]> -> Variant.Type.PackedVector2Array
         | t when t = typeof<Vector3[]> -> Variant.Type.PackedVector3Array
         | t when t = typeof<Color[]> -> Variant.Type.PackedColorArray
-        | t when t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Godot.Collections.Array<_>> -> 
+        | t when t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Godot.Collections.Array<_>> ->
             Variant.Type.Array
-        | t when t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Godot.Collections.Dictionary<_,_>> -> 
+        | t when t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Godot.Collections.Dictionary<_,_>> ->
             Variant.Type.Dictionary
-        | t when t = typeof<GodotObject> || t.IsSubclassOf typeof<GodotObject> -> 
+        | t when t = typeof<GodotObject> || t.IsSubclassOf typeof<GodotObject> ->
             Variant.Type.Object
         | _ -> Variant.Type.Nil
 
@@ -116,7 +116,7 @@ module TypeHelper =
         else
             let genericTypeDef = typ.GetGenericTypeDefinition()
             let genericArgs = typ.GetGenericArguments()
-            
+
             if genericTypeDef = typedefof<Godot.Collections.Array<_>> then
                 $"Godot.Collections.Array<{getTypeNameString genericArgs[0]}>"
             elif genericTypeDef = typedefof<Godot.Collections.Dictionary<_,_>> then
@@ -124,21 +124,19 @@ module TypeHelper =
             else
                 failwith "Fatal Error! "
 
-    let private asm: Assembly = fsi.CommandLineArgs[1] |> Assembly.LoadFile
-
-    let fetch (name: string) =
+    let fetch (asm: Assembly) (name: string) =
         if isNull asm then null
         else asm.GetType $"{asm.GetName().Name}.{name}"
 
-    let generateStr (typeName: string) =
-        match fetch typeName with
+    let generateStr (asm: Assembly) (typeName: string) =
+        match fetch asm typeName with
         | null -> ""
         | typ ->
             let isGlobal = typ.GetCustomAttribute<GDGlobalClassAttribute>() |> isNull |> not
             let isClass = typ.GetCustomAttribute<GDClassAttribute>() |> isNull |> not || isGlobal
             let isTool = typ.GetCustomAttribute<GDToolAttribute>() |> isNull |> not
             let isGdObj = typ.IsSubclassOf typeof<GodotObject>
-            
+
             if not isClass || not isGdObj then
                 $"Type {typeName} is marked as GDClass but is not a sub class of GodotObject!"
                 |> failwith
@@ -150,40 +148,40 @@ module TypeHelper =
                     |> Seq.filter (fun func -> func.ReturnType = typeof<Void> || isVariantType func.ReturnType)
                     |> Seq.filter (fun func -> func.GetParameters() |> Array.forall (fun prm -> isVariantType prm.ParameterType))
                     |> Seq.map (fun func ->
-                        let parameters = 
-                            func.GetParameters() 
-                            |> Array.map (fun prm -> 
+                        let parameters =
+                            func.GetParameters()
+                            |> Array.map (fun prm ->
                                 $"""{getTypeNameString prm.ParameterType} {prm.Name}{if prm.HasDefaultValue then $"= {prm.DefaultValue}" else ""}""")
                             |> String.concat ", "
-                        
+
                         let accessModifier = if func.IsPublic then "public " else ""
                         let overrideModifier = if func.IsVirtual then "override " else "new "
                         let returnType = if func.ReturnType = typeof<Void> then "void" else func.ReturnType.FullName
                         let paramNames = func.GetParameters() |> Array.map (fun prm -> prm.Name) |> String.concat ", "
-                        
+
                         $"    {accessModifier}{overrideModifier}{returnType} {func.Name}({parameters}) => base.{func.Name}({paramNames});")
                     |> String.concat "\n"
 
                 let signalsStr =
-                    let props = 
+                    let props =
                         typ.GetProperties()
-                        |> Seq.filter (fun prop -> 
+                        |> Seq.filter (fun prop ->
                             prop.GetCustomAttribute<GDSignalAttribute>() |> isNull |> not)
-                        |> Seq.filter (fun prop -> 
+                        |> Seq.filter (fun prop ->
                             prop.PropertyType.GetGenericTypeDefinition() = typeof<Godot.FSharp.Signal<_>>.GetGenericTypeDefinition())
-                        |> Seq.map (fun prop -> 
+                        |> Seq.map (fun prop ->
                             struct(prop, prop.PropertyType.GetGenericArguments().[0].GetMethod("Invoke").GetParameters()))
-                        |> Seq.filter (fun struct(prop, prms) -> 
+                        |> Seq.filter (fun struct(prop, prms) ->
                             prms.All(_.ParameterType >> isVariantType))
                         |> Seq.toArray
-                    let signalsAppend = 
-                        props 
-                        |> Seq.map (fun struct(prop, prms) -> 
-                            let argumentsStr = 
-                                if prms.Length = 0 then "null" 
+                    let signalsAppend =
+                        props
+                        |> Seq.map (fun struct(prop, prms) ->
+                            let argumentsStr =
+                                if prms.Length = 0 then "null"
                                 else
-                                    prms 
-                                    |> Seq.mapi (fun i prm -> 
+                                    prms
+                                    |> Seq.mapi (fun i prm ->
                                         let prmName = if String.IsNullOrEmpty prm.Name || String.IsNullOrWhiteSpace prm.Name then $"arg{i}" else prm.Name
                                         $"new(type: (global::Godot.Variant.Type){int (toVariantType prm.ParameterType)}, name: \"{prmName}\", hint: (global::Godot.PropertyHint)0, hintString: \"\", usage: (global::Godot.PropertyUsageFlags)6, exported: false)")
                                     |> String.concat ", "
@@ -191,12 +189,12 @@ module TypeHelper =
                             $"        signals.Add(new(name: \"{prop.Name}\", returnVal: new(type: (global::Godot.Variant.Type)0, name: \"\", hint: (global::Godot.PropertyHint)0, hintString: \"\", usage: (global::Godot.PropertyUsageFlags)6, exported: false), flags: (global::Godot.MethodFlags)1, arguments: {argumentsStr}, defaultArguments: null));"
                         )
                         |> String.concat "\n"
-                    
-                    let invokesAppend = 
-                        props 
+
+                    let invokesAppend =
+                        props
                         |> Seq.map (fun struct(prop, prms) ->
-                            let prmList = 
-                                prms 
+                            let prmList =
+                                prms
                                 |> Seq.mapi (fun i prm -> $"global::Godot.NativeInterop.VariantUtils.ConvertTo<{prm.ParameterType.FullName}>(args[{i}])")
                                 |> String.concat ", "
                             $"""
@@ -208,9 +206,9 @@ module TypeHelper =
                         )
                         |> String.concat "\n"
 
-                    let predicatesAppend = 
+                    let predicatesAppend =
                         props
-                        |> Seq.map (fun struct(prop, prms) -> 
+                        |> Seq.map (fun struct(prop, prms) ->
                             $"""
         if (signal == (StringName)"{prop.Name}") {{
             return true;
@@ -225,7 +223,7 @@ module TypeHelper =
     {{
         var signals = new {listType}({props.Length});
 {signalsAppend}
-        return signals;  
+        return signals;
     }}
     [global::System.ComponentModel.EditorBrowsable(global::System.ComponentModel.EditorBrowsableState.Never)]
     protected override void RaiseGodotClassSignalCallbacks(in godot_string_name signal, NativeVariantPtrArgs args)
@@ -252,11 +250,11 @@ module TypeHelper =
                         let setter = if prop.GetSetMethod() |> isNull then "" else $"set => base.{prop.Name} = value;"
                         $"    {exportAttr}public {overrideModifier}{prop.PropertyType.FullName} {prop.Name} {{ get => base.{prop.Name}; {setter}}}")
                     |> String.concat "\n"
-                
+
                 $"""using Godot;
 using Godot.NativeInterop;
 {if isTool then "[Tool]" else ""}{if isGlobal then "[GlobalClass]" else ""}
-public partial class {typeName} : {typ.FullName} 
+public partial class {typeName} : {typ.FullName}
 {{
 {propertiesStr}
 {funcsStr}
@@ -267,34 +265,43 @@ partial class {typeName}
 }}
 """
 
-    let getGenerationClass () = 
+    let getGenerationClass (asm: Assembly) =
         asm.GetTypes()
         |> Seq.filter (fun tp -> tp.GetCustomAttribute<GDClassAttribute>() |> isNull |> not)
 
-let [<Literal>] generateDir = "scripts.generate"
-if Directory.Exists generateDir then
-    let validFiles = 
-        TypeHelper.getGenerationClass()
-        |> Seq.collect (fun tp -> 
-            [| $"{tp.Name}.cs"; $"{tp.Name}.cs.uid" |])
-        |> Collections.Generic.HashSet
-    
-    Directory.GetFiles generateDir
-    |> Seq.filter (Path.GetFileName >> validFiles.Contains >> not)
-    |> Seq.iter File.Delete
-else
-    Directory.CreateDirectory generateDir |> ignore
+[<EntryPoint>]
+let main argv =
+    if argv.Length < 2 then
+        eprintfn "Usage: godot-fsharp-gen <path-to-fsharp-assembly.dll> <output-dir>"
+        exit 1
 
-TypeHelper.getGenerationClass()
-|> Seq.iter (fun tp ->
-    let filePath = $"{generateDir}/{tp.Name}.cs"
-    let content = TypeHelper.generateStr tp.Name
-    
-    let directory = Path.GetDirectoryName filePath
-    
-    if Directory.Exists directory |> not then
-        Directory.CreateDirectory directory |> ignore
-    
-    if File.Exists filePath |> not || File.ReadAllText filePath <> content then
-        File.WriteAllText(filePath, content)
-)
+    let asm = Assembly.LoadFile argv[0]
+    let generateDir = argv[1]
+
+    if Directory.Exists generateDir then
+        let validFiles =
+            TypeHelper.getGenerationClass asm
+            |> Seq.collect (fun tp ->
+                [| $"{tp.Name}.cs"; $"{tp.Name}.cs.uid" |])
+            |> Collections.Generic.HashSet
+
+        Directory.GetFiles generateDir
+        |> Seq.filter (Path.GetFileName >> validFiles.Contains >> not)
+        |> Seq.iter File.Delete
+    else
+        Directory.CreateDirectory generateDir |> ignore
+
+    TypeHelper.getGenerationClass asm
+    |> Seq.iter (fun tp ->
+        let filePath = Path.Combine(generateDir, $"{tp.Name}.cs")
+        let content = TypeHelper.generateStr asm tp.Name
+
+        let directory = Path.GetDirectoryName filePath
+
+        if Directory.Exists directory |> not then
+            Directory.CreateDirectory directory |> ignore
+
+        if File.Exists filePath |> not || File.ReadAllText filePath <> content then
+            File.WriteAllText(filePath, content))
+
+    0
