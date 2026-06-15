@@ -2,15 +2,14 @@
 extends EditorPlugin
 
 
-const fsharp_script_importer_path := "res://addons/Godot.FSharp/fsharp_script_importer.gd"
+const FSharpImporter := preload("res://addons/Godot.FSharp/fsharp_script_importer.gd")
 
 
 var _importer: EditorImportPlugin
 
 
 func _enter_tree() -> void:
-    var script: GDScript = load(fsharp_script_importer_path)
-    _importer = script.new()
+    _importer = FSharpImporter.new()
     add_import_plugin(_importer)
 
 
