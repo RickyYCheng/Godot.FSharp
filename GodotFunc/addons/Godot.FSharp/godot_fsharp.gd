@@ -3,6 +3,7 @@ extends EditorPlugin
 
 
 const FSharpImporter := preload("res://addons/Godot.FSharp/fsharp_script_importer.gd")
+const MENU_CREATE_CONFIG := "F# > Create Config Files"
 
 # Build pipeline constants
 const ADDON_NUGET_PATH := "addons/Godot.FSharp/nupkg"
@@ -20,11 +21,17 @@ var _importer: EditorImportPlugin
 func _enter_tree() -> void:
 	_importer = FSharpImporter.new()
 	add_import_plugin(_importer)
+	add_tool_menu_item(MENU_CREATE_CONFIG, _on_create_config_files_menu)
 
 
 func _exit_tree() -> void:
+	remove_tool_menu_item(MENU_CREATE_CONFIG)
 	remove_import_plugin(_importer)
 	_importer = null
+
+
+func _on_create_config_files_menu() -> void:
+	_create_config_files()
 
 
 # Idempotently ensures the configuration files needed for the F# build pipeline
